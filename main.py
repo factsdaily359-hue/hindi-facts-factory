@@ -26,17 +26,20 @@ def ask_gemini():
     genai.configure(api_key=key)
     model = genai.GenerativeModel(MODEL)
     prompt = """
-Create ONE original, accurate, surprising Hindi fact for a 35-45 second YouTube Short.
+Create ONE highly engaging, accurate, original Hindi fact for a 35-45 second YouTube Short designed to earn attention and hold viewers until the final reveal.
 Return ONLY valid JSON with keys: title, narration, screens, description, sources.
 Rules:
-- Hindi in Devanagari; natural conversational Hindi, not Bengali.
-- narration: about 75-100 Hindi words, engaging hook, explain one fact clearly, finish with a short CTA.
-- screens: exactly 5 short on-screen Hindi lines, each max 9 words, first is a hook.
-- title: concise Hindi title, no misleading claim.
-- description: Hindi description, mention that viewers should verify factual details from listed sources.
-- sources: 2 or 3 credible URLs from institutions, universities, government, museums, or peer-reviewed publishers. Never invent a URL; if unsure, use only sources you know are real and relevant.
-- Avoid medical, political, financial, dangerous, or breaking-news claims.
-- Do not repeat common generic facts if possible.
+- Use natural, conversational Indian Hindi in Devanagari. It must sound like a curious Indian storyteller speaking to a friend, never formal textbook Hindi.
+- narration: 85-105 Hindi words. Start immediately with a startling question, vivid claim, or curiosity gap in the first sentence. Do NOT greet viewers or introduce the channel.
+- Build one clear curiosity loop: tease the surprising answer early, reveal useful clues progressively, then deliver the strongest verified payoff near the end.
+- Use short spoken sentences, varied rhythm, concrete imagery, and one memorable comparison where useful. No filler, repetition, fake suspense, or exaggerated claims.
+- End with a natural one-line question that invites comments; avoid begging for likes/subscriptions.
+- screens: exactly 5 concise Hindi Devanagari lines, each max 8 words. Scene 1 must be a scroll-stopping hook; scenes 2-4 escalate the explanation; scene 5 delivers the payoff. Each line must match the narration at that moment.
+- title: concise curiosity-driven Hindi title, truthful and not clickbait.
+- description: concise Hindi summary and source references.
+- sources: 2 or 3 real, directly relevant URLs from credible institutions, universities, government bodies, museums, or peer-reviewed publishers. Never fabricate URLs or claim a source verifies something it does not. If uncertain about a URL, return fewer sources rather than inventing one.
+- Prefer unusual but well-established science, nature, history, space, or everyday-life facts. Avoid medical, political, financial, dangerous, disputed, or breaking-news claims.
+- Avoid repeating common generic facts.
 """
     response = model.generate_content(
         prompt,
