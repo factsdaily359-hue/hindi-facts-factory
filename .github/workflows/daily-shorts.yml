@@ -1,0 +1,55 @@
+name: Hindi Facts Shorts Factory
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 10:00 and 18:00 India time (UTC+5:30)
+    - cron: "30 4,12 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hindi-facts-publish
+  cancel-in-progress: false
+
+jobs:
+  create-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install system tools and Devanagari fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate and upload Hindi Fact Short
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-2.5-flash
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY_STATUS: unlisted
+        run: python main.py
+
+      - name: Save generated video for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hindi-facts-output
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 3
