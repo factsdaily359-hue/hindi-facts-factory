@@ -189,6 +189,34 @@ def make_card(text, index):
     img.save(path)
     return path
 
+def make_cta_card():
+    """Create a dedicated end slate so the subscribe/comment CTA is visible."""
+    img = Image.new("RGB", (1080, 1920), (13, 25, 55))
+    d = ImageDraw.Draw(img, "RGBA")
+    d.ellipse((690, 180, 1250, 740), fill=(255, 190, 70, 28))
+    d.ellipse((-240, 1250, 420, 1910), fill=(70, 190, 210, 24))
+    d.rounded_rectangle((65, 100, 1015, 1815), radius=64,
+                        fill=(4, 10, 28, 90), outline=(255, 255, 255, 65), width=4)
+    d.text((130, 270), "HINDI FACTS FACTORY", font=font(48, True),
+           fill=(255, 211, 100, 255))
+    d.text((540, 660), "ऐसे ही मज़ेदार", font=font(76, True),
+           fill=(255, 255, 255, 255), anchor="mm")
+    d.text((540, 770), "FACTS के लिए", font=font(82, True),
+           fill=(255, 255, 255, 255), anchor="mm")
+    d.rounded_rectangle((205, 900, 875, 1085), radius=85,
+                        fill=(205, 35, 55, 255), outline=(255, 255, 255, 230), width=5)
+    d.text((540, 992), "SUBSCRIBE", font=font(76, True),
+           fill=(255, 255, 255, 255), anchor="mm")
+    d.text((540, 1235), "और कमेंट में बताओ:", font=font(54, True),
+           fill=(255, 220, 130, 255), anchor="mm")
+    d.text((540, 1340), "अगला FACT किस पर हो?", font=font(52, True),
+           fill=(255, 255, 255, 255), anchor="mm")
+    d.text((540, 1640), "रोज़ कुछ नया सीखें!", font=font(42),
+           fill=(215, 230, 245, 255), anchor="mm")
+    path = OUT / "cta_end_card.png"
+    img.save(path)
+    return path
+
 async def make_voice(text, path):
     communicate = edge_tts.Communicate(text, VOICE, rate="+2%", volume="+0%")
     await communicate.save(str(path))
@@ -196,7 +224,12 @@ async def make_voice(text, path):
 def render_video(data):
     cards = [make_card(line, i) for i, line in enumerate(data["screens"])]
     audio = OUT / "narration.mp3"
-    asyncio.run(make_voice(data["narration"], audio))
+    cta_text = (
+        "और ऐसे ही मज़ेदार फैक्ट्स के लिए चैनल को सब्सक्राइब करें। "
+        "कमेंट में बताइए, अगला फैक्ट किस विषय पर होना चाहिए?"
+    )
+    full_narration = data["narration"].strip() + " " + cta_text
+    asyncio.run(make_voice(full_narration, audio))
 
     # Turn each illustrated 2D scene card into a moving 9-second shot.
     # Slow camera pushes and alternating pans create motion instead of a static slideshow.
@@ -224,6 +257,22 @@ def render_video(data):
             str(clip)
         ], check=True)
         clips.append(clip)
+
+    # A short dedicated end slate reinforces the spoken subscribe/comment CTA.
+    cta_card = make_cta_card()
+    cta_clip = OUT / "cta_scene.mp4"
+    cta_vf = (
+        "zoompan=z='min(zoom+0.0007,1.08)'"
+        ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        ":d=120:s=1080x1920:fps=30,format=yuv420p"
+    )
+    subprocess.run([
+        "ffmpeg", "-y", "-loop", "1", "-i", str(cta_card),
+        "-vf", cta_vf, "-t", "4", "-r", "30",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        str(cta_clip)
+    ], check=True)
+    clips.append(cta_clip)
 
     concat = OUT / "scenes.txt"
     with concat.open("w", encoding="utf-8") as f:
