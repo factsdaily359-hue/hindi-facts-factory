@@ -3,8 +3,8 @@ name: Hindi Facts Shorts Factory
 on:
   workflow_dispatch:
   schedule:
-    # 10:00 and 18:00 India time (UTC+5:30)
-    - cron: "30 4,12 * * *"
+    # One daily generation at 10:00 India time (UTC+5:30)
+    - cron: "30 4 * * *"
 
 permissions:
   contents: read
@@ -35,7 +35,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Generate and upload Hindi Fact Short
+      - name: Generate Hindi Fact Short (review only)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.8-flash
