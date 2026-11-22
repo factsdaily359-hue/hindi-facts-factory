@@ -120,13 +120,39 @@ def render_video(data):
     cards = [make_card(line, i) for i, line in enumerate(data["screens"])]
     audio = OUT / "narration.mp3"
     asyncio.run(make_voice(data["narration"], audio))
-    # Each card is shown for 8 seconds; audio is trimmed to the narration length.
-    concat = OUT / "cards.txt"
+
+    # Turn each illustrated 2D scene card into a moving 9-second shot.
+    # Slow camera pushes and alternating pans create motion instead of a static slideshow.
+    clips = []
+    for i, card in enumerate(cards):
+        clip = OUT / f"scene_{i+1}.mp4"
+        direction = i % 4
+        if direction == 0:
+            x_expr, y_expr = "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"
+        elif direction == 1:
+            x_expr, y_expr = "iw/2-(iw/zoom/2)+12", "ih/2-(ih/zoom/2)"
+        elif direction == 2:
+            x_expr, y_expr = "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)+12"
+        else:
+            x_expr, y_expr = "iw/2-(iw/zoom/2)-12", "ih/2-(ih/zoom/2)"
+        vf = (
+            "zoompan=z='min(zoom+0.00045,1.10)'"
+            f":x='{x_expr}':y='{y_expr}':d=270:s=1080x1920:fps=30,"
+            "format=yuv420p"
+        )
+        subprocess.run([
+            "ffmpeg", "-y", "-loop", "1", "-i", str(card),
+            "-vf", vf, "-t", "9", "-r", "30",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            str(clip)
+        ], check=True)
+        clips.append(clip)
+
+    concat = OUT / "scenes.txt"
     with concat.open("w", encoding="utf-8") as f:
-        for p in cards:
-            f.write(f"file '{p.as_posix()}'\n")
-            f.write("duration 8\n")
-        f.write(f"file '{cards[-1].as_posix()}'\n")
+        for clip in clips:
+            f.write(f"file '{clip.as_posix()}'\\n")
+
     video = OUT / "hindi_fact_short.mp4"
     subprocess.run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat),
