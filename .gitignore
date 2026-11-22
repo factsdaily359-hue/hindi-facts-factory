@@ -1,0 +1,7 @@
+# Local OAuth credentials and tokens
+client_secret.json
+token.json
+*.token
+.env
+.venv/
+__pycache__/
