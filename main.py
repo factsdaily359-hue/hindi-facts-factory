@@ -71,6 +71,78 @@ def draw_wrapped(draw, text, fnt, max_width):
         lines.append(current)
     return lines
 
+def draw_scene_art(draw, index, text):
+    """Draw a distinct layered 2D vector illustration for each fact scene."""
+    import math
+
+    t = text.lower()
+    cx, cy = 540, 1190
+    # Shared atmospheric details
+    for j in range(18):
+        sx = 120 + ((j * 173 + index * 91) % 840)
+        sy = 850 + ((j * 97 + index * 43) % 570)
+        r = 3 + (j % 3) * 2
+        draw.ellipse((sx-r, sy-r, sx+r, sy+r), fill=(255,255,255,110))
+
+    space_words = ("अंतरिक्ष", "ग्रह", "सूर्य", "चंद्र", "तारा", "नासा", "ब्रह्मांड", "पृथ्वी", "space", "planet")
+    ocean_words = ("समुद्र", "पानी", "महासागर", "मछली", "व्हेल", "पानी", "जल", "ocean", "sea", "fish")
+    nature_words = ("पेड़", "जंगल", "पौधा", "पत्ता", "फूल", "प्रकृति", "वन", "tree", "forest", "plant")
+    animal_words = ("जानवर", "हाथी", "शेर", "पक्षी", "कुत्ता", "बिल्ली", "चींटी", "साँप", "animal", "bird")
+    tech_words = ("कंप्यूटर", "मोबाइल", "इंटरनेट", "रोबोट", "चिप", "तकनीक", "बिजली", "computer", "technology")
+
+    if any(k in t for k in space_words):
+        # Planet, orbital rings and a distant moon.
+        draw.ellipse((310, 960, 770, 1420), fill=(70,125,190,255), outline=(205,230,255,255), width=8)
+        draw.arc((205, 1030, 875, 1360), 185, 350, fill=(255,211,100,255), width=24)
+        draw.arc((205, 1030, 875, 1360), 5, 170, fill=(255,211,100,255), width=24)
+        draw.ellipse((690, 900, 825, 1035), fill=(225,220,205,255), outline=(255,255,255,220), width=5)
+        for x,y,r in [(430,1080,45),(610,1220,70),(380,1300,30)]:
+            draw.ellipse((x-r,y-r,x+r,y+r), fill=(90,165,115,220))
+    elif any(k in t for k in ocean_words):
+        draw.rectangle((120, 1120, 960, 1510), fill=(20,105,160,255))
+        for y in (1160,1240,1320,1400):
+            draw.arc((130,y-35,960,y+45), 185, 355, fill=(125,220,235,255), width=12)
+        # Fish silhouette
+        draw.ellipse((360,1030,680,1170), fill=(255,170,75,255))
+        draw.polygon([(650,1100),(770,1010),(770,1190)], fill=(255,170,75,255))
+        draw.ellipse((420,1065,440,1085), fill=(20,35,55,255))
+        draw.ellipse((180,1280,260,1360), fill=(100,205,190,255))
+    elif any(k in t for k in nature_words):
+        draw.polygon([(100,1320),(330,990),(560,1320)], fill=(75,145,105,255))
+        draw.polygon([(420,1350),(700,950),(1010,1350)], fill=(45,115,85,255))
+        for x,y,r in [(260,1190,100),(700,1120,125),(850,1240,95)]:
+            draw.rectangle((x-18,y,x+18,1480), fill=(120,78,48,255))
+            draw.ellipse((x-r,y-r,x+r,y+r), fill=(75,175,105,255), outline=(180,235,165,255), width=5)
+        draw.ellipse((760,870,900,1010), fill=(255,210,100,255))
+    elif any(k in t for k in animal_words):
+        # Friendly stylized animal portrait.
+        draw.ellipse((300,960,780,1440), fill=(190,145,100,255), outline=(255,225,185,255), width=8)
+        draw.ellipse((250,930,430,1190), fill=(170,120,80,255))
+        draw.ellipse((650,930,830,1190), fill=(170,120,80,255))
+        draw.ellipse((405,1110,455,1160), fill=(25,30,40,255))
+        draw.ellipse((625,1110,675,1160), fill=(25,30,40,255))
+        draw.ellipse((485,1220,595,1300), fill=(65,45,40,255))
+        draw.arc((445,1210,635,1370), 5, 175, fill=(65,45,40,255), width=10)
+    elif any(k in t for k in tech_words):
+        draw.rounded_rectangle((300,930,780,1390), radius=55, fill=(45,65,95,255), outline=(180,220,255,255), width=10)
+        draw.rounded_rectangle((350,990,730,1300), radius=25, fill=(35,155,175,255))
+        for j in range(5):
+            x = 405 + j*65
+            draw.line((x,1060,x,1220-(j%2)*70), fill=(220,255,220,255), width=13)
+        draw.rounded_rectangle((455,1400,625,1450), radius=20, fill=(180,200,220,255))
+    else:
+        # Science / discovery scene: open book, glowing discovery bulb and rays.
+        draw.rounded_rectangle((220,1190,535,1430), radius=24, fill=(235,225,195,255), outline=(255,255,255,255), width=7)
+        draw.rounded_rectangle((545,1190,860,1430), radius=24, fill=(245,235,210,255), outline=(255,255,255,255), width=7)
+        draw.line((540,1200,540,1425), fill=(95,75,60,255), width=8)
+        draw.ellipse((410,900,670,1160), fill=(255,211,100,255), outline=(255,245,190,255), width=8)
+        draw.rounded_rectangle((485,1125,595,1195), radius=18, fill=(220,165,65,255))
+        for angle in range(0,360,45):
+            a = math.radians(angle)
+            x1,y1 = 540+155*math.cos(a),1030+155*math.sin(a)
+            x2,y2 = 540+205*math.cos(a),1030+205*math.sin(a)
+            draw.line((x1,y1,x2,y2), fill=(255,220,120,255), width=9)
+
 def make_card(text, index):
     w, h = 1080, 1920
     palettes = [
@@ -89,24 +161,26 @@ def make_card(text, index):
         for x in range(w):
             pix[x, y] = c
     d = ImageDraw.Draw(img, "RGBA")
-    d.ellipse((720, 180, 1220, 680), fill=(255,255,255,18))
+    d.ellipse((720, 100, 1220, 600), fill=(255,255,255,18))
     d.ellipse((-220, 1280, 360, 1860), fill=(255,255,255,15))
-    d.rounded_rectangle((76, 120, 1004, 1800), radius=54,
-                        fill=(4, 8, 20, 78), outline=(255,255,255,48), width=3)
-    d.text((130, 220), "HINDI FACTS", font=font(42, True), fill=(255, 211, 100, 255))
-    d.rounded_rectangle((130, 330, 950, 340), radius=5, fill=(255,211,100,220))
-    fnt = font(78 if len(text) < 55 else 68, True)
-    lines = draw_wrapped(d, text, fnt, 790)
-    line_h = 118 if fnt.size >= 78 else 104
+    d.rounded_rectangle((60, 90, 1020, 1820), radius=58,
+                        fill=(4, 8, 20, 55), outline=(255,255,255,55), width=3)
+    d.text((125, 170), "HINDI FACTS", font=font(42, True), fill=(255, 211, 100, 255))
+    d.rounded_rectangle((125, 265, 955, 276), radius=5, fill=(255,211,100,220))
+    fnt = font(70 if len(text) < 55 else 62, True)
+    lines = draw_wrapped(d, text, fnt, 820)
+    line_h = 96
     total_h = len(lines) * line_h
-    y = max(540, (h - total_h) // 2)
-    for line in lines:
-        bbox = d.textbbox((0,0), line, font=fnt, stroke_width=1)
+    y = 390 + max(0, (390-total_h)//2)
+    for line in lines[:4]:
+        bbox = d.textbbox((0, 0), line, font=fnt, stroke_width=1)
         x = (w - (bbox[2]-bbox[0])) // 2
         d.text((x, y), line, font=fnt, fill=(255,255,255,255),
-               stroke_width=2, stroke_fill=(0,0,0,80))
+               stroke_width=2, stroke_fill=(0,0,0,100))
         y += line_h
-    d.text((130, 1660), f"FACT {index+1}/5  •  रोज़ कुछ नया सीखें",
+    # A different illustrated subject is drawn for each scene's topic.
+    draw_scene_art(d, index, text)
+    d.text((125, 1690), f"FACT {index+1}/5  •  रोज़ कुछ नया सीखें",
            font=font(36), fill=(222,232,245,235))
     path = OUT / f"card_{index+1}.png"
     img.save(path)
