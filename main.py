@@ -27,7 +27,7 @@ def ask_gemini():
     model = genai.GenerativeModel(MODEL)
     prompt = """
 Create ONE highly engaging, accurate, original Hindi fact for a 35-45 second YouTube Short designed to earn attention and hold viewers until the final reveal.
-Return ONLY valid JSON with keys: title, narration, screens, description, sources.
+Return ONLY valid JSON with keys: title, narration, screens, screens_hinglish, description, sources.
 Rules:
 - Use natural, conversational Indian Hindi in Devanagari. It must sound like a curious Indian storyteller speaking to a friend, never formal textbook Hindi.
 - narration: 85-105 Hindi words. Start immediately with a startling question, vivid claim, or curiosity gap in the first sentence. Do NOT greet viewers or introduce the channel.
@@ -35,6 +35,7 @@ Rules:
 - Use short spoken sentences, varied rhythm, concrete imagery, and one memorable comparison where useful. No filler, repetition, fake suspense, or exaggerated claims.
 - End with a natural one-line question that invites comments; avoid begging for likes/subscriptions.
 - screens: exactly 5 concise Hindi Devanagari lines, each max 8 words. Scene 1 must be a scroll-stopping hook; scenes 2-4 escalate the explanation; scene 5 delivers the payoff. Each line must match the narration at that moment.
+- screens_hinglish: exactly 5 matching subtitle lines in Hinglish, using Roman letters to write the Hindi words as spoken (transliteration, NOT English translation). Keep them short, natural and easy to read on a phone.
 - title: concise curiosity-driven Hindi title, truthful and not clickbait.
 - description: concise Hindi summary and source references.
 - sources: 2 or 3 real, directly relevant URLs from credible institutions, universities, government bodies, museums, or peer-reviewed publishers. Never fabricate URLs or claim a source verifies something it does not. If uncertain about a URL, return fewer sources rather than inventing one.
@@ -47,7 +48,7 @@ Rules:
     )
     data = json.loads(response.text)
     required = ["title", "narration", "screens", "description", "sources"]
-    if any(k not in data for k in required) or len(data["screens"]) != 5:
+    if any(k not in data for k in required) or len(data["screens"]) != 5 or len(data.get("screens_hinglish", [])) != 5:
         raise ValueError("Gemini response is missing required fields.")
     if not data["sources"]:
         raise ValueError("No source references returned; refusing to publish an unsourced fact.")
@@ -146,7 +147,7 @@ def draw_scene_art(draw, index, text):
             x2,y2 = 540+205*math.cos(a),1030+205*math.sin(a)
             draw.line((x1,y1,x2,y2), fill=(255,220,120,255), width=9)
 
-def make_card(text, index):
+def make_card(text, index, subtitle):
     w, h = 1080, 1920
     palettes = [
         ((12, 20, 48), (26, 91, 120)),
@@ -183,6 +184,17 @@ def make_card(text, index):
         y += line_h
     # A different illustrated subject is drawn for each scene's topic.
     draw_scene_art(d, index, text)
+    # Burn in Hinglish captions so they appear automatically on every video.
+    d.rounded_rectangle((85, 1510, 995, 1655), radius=30,
+                        fill=(0, 0, 0, 205), outline=(255,255,255,100), width=2)
+    cap_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
+    cap_lines = draw_wrapped(d, subtitle, cap_font, 830)
+    cap_y = 1540 + max(0, (80 - len(cap_lines)*48)//2)
+    for cap_line in cap_lines[:2]:
+        cap_w = d.textbbox((0,0), cap_line, font=cap_font)[2]
+        d.text(((w-cap_w)//2, cap_y), cap_line, font=cap_font,
+               fill=(255,255,255,255), stroke_width=1, stroke_fill=(0,0,0,255))
+        cap_y += 48
     d.text((125, 1690), f"FACT {index+1}/5  •  रोज़ कुछ नया सीखें",
            font=font(36), fill=(222,232,245,235))
     path = OUT / f"card_{index+1}.png"
@@ -211,7 +223,8 @@ def make_cta_card():
            fill=(255, 220, 130, 255), anchor="mm")
     d.text((540, 1340), "अगला FACT किस पर हो?", font=font(52, True),
            fill=(255, 255, 255, 255), anchor="mm")
-    d.text((540, 1640), "रोज़ कुछ नया सीखें!", font=font(42),
+    d.text((540, 1640), "Aise hi amazing facts ke liye Subscribe karo!",
+           font=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 30),
            fill=(215, 230, 245, 255), anchor="mm")
     path = OUT / "cta_end_card.png"
     img.save(path)
@@ -222,7 +235,7 @@ async def make_voice(text, path):
     await communicate.save(str(path))
 
 def render_video(data):
-    cards = [make_card(line, i) for i, line in enumerate(data["screens"])]
+    cards = [make_card(line, i, data["screens_hinglish"][i]) for i, line in enumerate(data["screens"])]
     audio = OUT / "narration.mp3"
     cta_text = (
         "और ऐसे ही मज़ेदार फैक्ट्स के लिए चैनल को सब्सक्राइब करें। "
