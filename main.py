@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "output"
 OUT.mkdir(exist_ok=True)
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-VOICE = os.getenv("TTS_VOICE", "hi-IN-SwaraNeural")
+VOICE = os.getenv("TTS_VOICE", "hi-IN-MadhurNeural")
 FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
 BOLD_FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"
 
