@@ -225,7 +225,7 @@ def render_video(data):
     concat = OUT / "scenes.txt"
     with concat.open("w", encoding="utf-8") as f:
         for clip in clips:
-            f.write(f"file '{clip.as_posix()}'\\n")
+            f.write(f"file '{clip.as_posix()}'\n")
 
     video = OUT / "hindi_fact_short.mp4"
     subprocess.run([
