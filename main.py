@@ -322,14 +322,188 @@ def upload_video(path, data):
     print("PRIVACY_STATUS=" + privacy)
     return response["id"]
 
+
+
+def ask_gemini_long():
+    """Generate a separate, researched-feeling long-form Hindi explainer."""
+    key = os.environ["GEMINI_API_KEY"]
+    genai.configure(api_key=key)
+    model = genai.GenerativeModel(MODEL)
+    prompt = """
+Create ONE original, accurate long-form Hindi YouTube explainer designed for an approximately 8-minute video.
+Return ONLY valid JSON with keys: title, narration, description, sources, scenes.
+Rules:
+- Topic must be different from the daily Short whenever possible; choose an engaging science, nature, space, history, or everyday-life mystery.
+- narration must be 850-950 words in natural conversational Indian Hindi (Devanagari), suitable for a native Indian male narrator.
+- Open with a powerful 10-second hook and a clear question; do not greet viewers or introduce the channel.
+- Build a coherent story with a clear beginning, progressive explanations, concrete examples, surprising but verified details, and a satisfying conclusion.
+- Explain technical ideas simply. No padding, repeated points, fake suspense, fabricated facts, or exaggerated claims.
+- Include natural transitions between sections. Keep spoken sentences comfortable for voice narration.
+- End with a short question for comments, followed by this CTA in Hindi: "ऐसे ही दिलचस्प वीडियो के लिए चैनल को सब्सक्राइब करें।"
+- scenes: exactly 8 concise visual scene descriptions in Hindi, each corresponding to a different part of the narration. These are visual direction labels, NOT subtitles or captions.
+- title: truthful, curiosity-driven Hindi title, max 100 characters.
+- description: concise Hindi summary.
+- sources: 2-4 real, directly relevant URLs from credible institutions, universities, government bodies, museums, or peer-reviewed publishers. Never invent URLs. Return fewer if uncertain.
+- Avoid medical, political, financial, dangerous, disputed, or breaking-news claims.
+"""
+    response = model.generate_content(
+        prompt,
+        generation_config={"temperature": 0.55, "response_mime_type": "application/json"},
+    )
+    data = json.loads(response.text)
+    if not all(k in data for k in ["title", "narration", "description", "sources", "scenes"]):
+        raise ValueError("Long-video response is missing required fields.")
+    if len(data["scenes"]) != 8 or len(data["narration"].split()) < 700:
+        raise ValueError("Long-video script is too short or has an invalid scene count.")
+    if not data["sources"]:
+        raise ValueError("No source references returned for long video.")
+    return data
+
+
+def make_long_card(scene_text, index, title):
+    """Create a clean 16:9 illustrated scene card; deliberately no subtitles."""
+    w, h = 1920, 1080
+    palettes = [
+        ((8, 18, 45), (22, 83, 115)), ((35, 18, 58), (100, 45, 92)),
+        ((8, 48, 58), (20, 105, 95)), ((50, 28, 12), (120, 70, 28)),
+        ((20, 30, 55), (62, 78, 125)), ((18, 48, 65), (35, 105, 125)),
+        ((48, 22, 42), (110, 55, 82)), ((12, 38, 48), (55, 105, 90)),
+    ]
+    top, bottom = palettes[index % len(palettes)]
+    img = Image.new("RGB", (w, h))
+    pix = img.load()
+    for y in range(h):
+        t = y / (h - 1)
+        c = tuple(int(top[i] * (1-t) + bottom[i] * t) for i in range(3))
+        for x in range(w):
+            pix[x, y] = c
+    d = ImageDraw.Draw(img, "RGBA")
+    d.rounded_rectangle((55, 55, 1865, 1025), radius=48,
+                        fill=(3, 8, 20, 55), outline=(255,255,255,45), width=3)
+    d.text((115, 105), "HINDI FACTS FACTORY", font=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 34),
+           fill=(255, 211, 100, 255))
+    # Large topic illustration made from simple layered vector shapes.
+    cx, cy = 1420, 570
+    for j in range(12):
+        x = 1130 + ((j * 137 + index * 71) % 600)
+        y = 300 + ((j * 89 + index * 43) % 470)
+        r = 8 + (j % 4) * 7
+        d.ellipse((x-r,y-r,x+r,y+r), fill=(255,255,255,90))
+    d.ellipse((cx-205,cy-205,cx+205,cy+205), fill=(255,190,80,210), outline=(255,245,200,255), width=8)
+    d.arc((cx-300,cy-110,cx+300,cy+110), 190, 350, fill=(180,230,255,255), width=18)
+    d.arc((cx-300,cy-110,cx+300,cy+110), 10, 170, fill=(180,230,255,255), width=18)
+    title_font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf", 54)
+    scene_font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf", 66)
+    title_lines = draw_wrapped(d, title, title_font, 850)
+    y = 260
+    for line in title_lines[:3]:
+        d.text((115,y), line, font=title_font, fill=(255,211,100,255))
+        y += 78
+    scene_lines = draw_wrapped(d, scene_text, scene_font, 850)
+    y += 75
+    for line in scene_lines[:3]:
+        d.text((115,y), line, font=scene_font, fill=(255,255,255,255),
+               stroke_width=2, stroke_fill=(0,0,0,100))
+        y += 88
+    path = OUT / f"long_card_{index+1}.png"
+    img.save(path)
+    return path
+
+
+async def make_long_voice(text, path):
+    communicate = edge_tts.Communicate(text, VOICE, rate="+2%", volume="+0%")
+    await communicate.save(str(path))
+
+
+def render_long_video(data):
+    audio = OUT / "long_narration.mp3"
+    asyncio.run(make_long_voice(data["narration"].strip(), audio))
+    probe = subprocess.run([
+        "ffprobe", "-v", "error", "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1", str(audio)
+    ], check=True, capture_output=True, text=True)
+    audio_duration = float(probe.stdout.strip())
+    # Aim for roughly eight minutes; retain the complete narration rather than cutting words.
+    per_scene = audio_duration / len(data["scenes"])
+    clips = []
+    for i, scene in enumerate(data["scenes"]):
+        card = make_long_card(scene, i, data["title"])
+        clip = OUT / f"long_scene_{i+1}.mp4"
+        frames = max(1, int(per_scene * 30))
+        vf = (
+            "zoompan=z='min(zoom+0.00012,1.06)'"
+            ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            f":d={frames}:s=1920x1080:fps=30,format=yuv420p"
+        )
+        subprocess.run([
+            "ffmpeg", "-y", "-loop", "1", "-i", str(card),
+            "-vf", vf, "-frames:v", str(frames), "-r", "30",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+            str(clip)
+        ], check=True)
+        clips.append(clip)
+    concat = OUT / "long_scenes.txt"
+    with concat.open("w", encoding="utf-8") as f:
+        for clip in clips:
+            f.write(f"file '{clip.as_posix()}'\n")
+    video = OUT / "hindi_facts_long.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat),
+        "-i", str(audio), "-vf", "fps=30,scale=1920:1080,format=yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+        "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
+        str(video)
+    ], check=True)
+    return video, audio_duration
+
+
+def upload_long_video(path, data):
+    client_id = os.environ["YOUTUBE_CLIENT_ID"]
+    client_secret = os.environ["YOUTUBE_CLIENT_SECRET"]
+    refresh_token = os.environ["YOUTUBE_REFRESH_TOKEN"]
+    creds = Credentials(
+        token=None, refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id, client_secret=client_secret,
+        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+    )
+    youtube = build("youtube", "v3", credentials=creds)
+    sources = "\n".join(f"- {u}" for u in data["sources"])
+    description = (data["description"] + "\n\nस्रोत / Sources:\n" + sources)[:4900]
+    body = {
+        "snippet": {
+            "title": data["title"][:100],
+            "description": description,
+            "categoryId": "27",
+            "tags": ["Hindi Facts", "Amazing Facts", "Science", "Knowledge"],
+        },
+        "status": {"privacyStatus": os.getenv("YOUTUBE_PRIVACY_STATUS", "unlisted"),
+                   "selfDeclaredMadeForKids": False},
+    }
+    request = youtube.videos().insert(
+        part="snippet,status", body=body,
+        media_body=MediaFileUpload(str(path), mimetype="video/mp4", resumable=True),
+    )
+    response = request.execute()
+    print("LONG_UPLOAD_SUCCESS video_id=" + response["id"])
+    return response["id"]
+
+
 def main():
-    data = ask_gemini()
-    (OUT / "metadata.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    video = render_video(data)
+    # Create both formats daily; the long-form script is generated separately.
+    short_data = ask_gemini()
+    (OUT / "short_metadata.json").write_text(json.dumps(short_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    short_video = render_video(short_data)
+    long_data = ask_gemini_long()
+    (OUT / "long_metadata.json").write_text(json.dumps(long_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    long_video, long_seconds = render_long_video(long_data)
+    print(f"LONG_VIDEO_DURATION_SECONDS={long_seconds:.1f}")
     if os.getenv("NO_UPLOAD", "false").lower() == "true":
-        print("VIDEO_READY_NO_UPLOAD=" + str(video))
+        print("SHORT_READY_NO_UPLOAD=" + str(short_video))
+        print("LONG_READY_NO_UPLOAD=" + str(long_video))
         return
-    upload_video(video, data)
+    upload_video(short_video, short_data)
+    upload_long_video(long_video, long_data)
 
 if __name__ == "__main__":
     main()
