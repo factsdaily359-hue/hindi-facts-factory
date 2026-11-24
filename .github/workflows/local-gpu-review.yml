@@ -24,13 +24,14 @@ jobs:
       - name: Verify local Python and GPU tools
         run: |
           python --version
-          if (-not (Get-Command blender -ErrorAction SilentlyContinue)) {
-            throw "Blender is not in PATH. Install Blender 4.2 or newer and add its folder to PATH."
+          $blenderExe = "C:\Program Files\Blender Foundation\Blender 5.3\blender.exe"
+          if (-not (Test-Path $blenderExe)) {
+            throw "Blender executable not found at: $blenderExe"
           }
           if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
             throw "FFmpeg is not in PATH. Install FFmpeg and add its bin folder to PATH."
           }
-          blender --version
+          & $blenderExe --version
           ffmpeg -version
           if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
             nvidia-smi
