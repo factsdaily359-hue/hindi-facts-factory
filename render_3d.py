@@ -75,7 +75,7 @@ def light_setup():
 def render_scene(index, label):
     clear_scene()
     scene=bpy.context.scene
-    scene.render.engine="BLENDER_EEVEE_NEXT"
+    scene.render.engine="BLENDER_EEVEE"
     scene.eevee.taa_render_samples=16
     scene.render.resolution_x=render_width
     scene.render.resolution_y=render_height
