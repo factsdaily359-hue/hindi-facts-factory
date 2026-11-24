@@ -12,6 +12,9 @@ concurrency:
 
 jobs:
   render:
+    defaults:
+      run:
+        shell: powershell -ExecutionPolicy Bypass -command ". '{0}'"
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 240
     steps:
@@ -25,7 +28,6 @@ jobs:
           cache: "pip"
 
       - name: Verify local GPU rendering tools
-        shell: pwsh
         run: |
           python --version
           if (-not (Get-Command blender -ErrorAction SilentlyContinue)) {
