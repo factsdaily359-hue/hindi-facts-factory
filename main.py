@@ -22,13 +22,12 @@ FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
 BOLD_FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"
 
 def generate_with_quota_retry(model, prompt, generation_config, label):
-    """Retry Gemini rate limits and transient 504/deadline/network failures."""
+    """Retry only short-lived Gemini outages; never burn requests on exhausted quota."""
     import time
 
-    delays = [20, 40, 60, 90, 120]
-    for attempt in range(len(delays) + 1):
+    transient_delays = [30, 60]
+    for attempt in range(len(transient_delays) + 1):
         try:
-            # Give slower free-tier generations more time before the SDK deadline.
             return model.generate_content(
                 prompt,
                 generation_config=generation_config,
@@ -40,7 +39,16 @@ def generate_with_quota_retry(model, prompt, generation_config, label):
                 "resource_exhausted" in message
                 or "429" in message
                 or "generate_content_free_tier_requests" in message
+                or "quota exceeded" in message
             )
+            if quota_error:
+                raise RuntimeError(
+                    f"GEMINI_QUOTA_EXHAUSTED: {label} generation stopped without "
+                    "retries because the Gemini API quota is exhausted. "
+                    "Wait for the quota reset or use a project/model with available quota. "
+                    "No video was uploaded."
+                ) from exc
+
             transient_error = (
                 "deadline_exceeded" in message
                 or "deadline expired" in message
@@ -49,14 +57,14 @@ def generate_with_quota_retry(model, prompt, generation_config, label):
                 or "temporarily unavailable" in message
                 or "timed out" in message
             )
-            if not (quota_error or transient_error) or attempt >= len(delays):
+            if not transient_error or attempt >= len(transient_delays):
                 raise
-            wait_seconds = delays[attempt]
-            error_type = "RATE_LIMIT" if quota_error else "TEMPORARY_TIMEOUT"
+
+            wait_seconds = transient_delays[attempt]
             print(
-                f"GEMINI_{error_type}: {label} request failed; retrying in "
-                f"{wait_seconds}s (attempt {attempt + 1}/{len(delays)}). "
-                f"Reason: {message[:240]}"
+                f"GEMINI_TEMPORARY_ERROR: {label} request failed; "
+                f"retrying in {wait_seconds}s (attempt {attempt + 1}/"
+                f"{len(transient_delays)}). Reason: {message[:240]}"
             )
             time.sleep(wait_seconds)
 
