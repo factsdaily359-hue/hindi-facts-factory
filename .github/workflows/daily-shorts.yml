@@ -14,9 +14,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  create-and-upload:
+  create-review-videos:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 180
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
