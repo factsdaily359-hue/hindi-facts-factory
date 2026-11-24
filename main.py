@@ -368,6 +368,41 @@ def render_3d_video(data):
     return video
 
 
+
+def make_thumbnail(video_path, title, filename, size):
+    """Create a review thumbnail from the rendered footage, with a readable Hindi title."""
+    frame = OUT / (Path(filename).stem + "_frame.png")
+    subprocess.run([
+        "ffmpeg", "-y", "-ss", "1.5", "-i", str(video_path),
+        "-frames:v", "1", str(frame)
+    ], check=True, capture_output=True)
+    with Image.open(frame) as source:
+        image = source.convert("RGB")
+    target_w, target_h = size
+    scale = max(target_w / image.width, target_h / image.height)
+    image = image.resize((int(image.width * scale), int(image.height * scale)), Image.Resampling.LANCZOS)
+    left = (image.width - target_w) // 2
+    top = (image.height - target_h) // 2
+    image = image.crop((left, top, left + target_w, top + target_h)).convert("RGBA")
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    panel_h = int(target_h * 0.43)
+    draw.rectangle((0, 0, target_w, panel_h), fill=(3, 8, 20, 175))
+    image = Image.alpha_composite(image, overlay)
+    draw = ImageDraw.Draw(image)
+    max_font = 82 if target_w > 1000 else 62
+    fnt = font(max_font, True)
+    lines = draw_wrapped(draw, title, fnt, target_w - 100)
+    line_h = max_font + 18
+    y = 45
+    for line in lines[:3]:
+        draw.text((50, y), line, font=fnt, fill=(255, 255, 255, 255),
+                  stroke_width=3, stroke_fill=(0, 0, 0, 220))
+        y += line_h
+    image.convert("RGB").save(OUT / filename, quality=94, optimize=True)
+    frame.unlink(missing_ok=True)
+    print("THUMBNAIL_READY=" + str(OUT / filename))
+
 def upload_video(path, data):
     client_id = os.environ["YOUTUBE_CLIENT_ID"]
     client_secret = os.environ["YOUTUBE_CLIENT_SECRET"]
@@ -581,7 +616,9 @@ def main():
     (OUT / "long_metadata.json").write_text(json.dumps(long_data, ensure_ascii=False, indent=2), encoding="utf-8")
     long_video, long_seconds = render_long_video(long_data)
     print(f"LONG_VIDEO_DURATION_SECONDS={long_seconds:.1f}")
-    if os.getenv("NO_UPLOAD", "false").lower() == "true":
+    make_thumbnail(short_video, short_data["title"], "short_thumbnail.jpg", (1080, 1920))
+    make_thumbnail(long_video, long_data["title"], "long_thumbnail.jpg", (1280, 720))
+    if os.getenv("NO_UPLOAD", "true").lower() == "true":
         print("SHORT_READY_NO_UPLOAD=" + str(short_video))
         print("LONG_READY_NO_UPLOAD=" + str(long_video))
         return
