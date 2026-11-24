@@ -287,6 +287,38 @@ def render_video(data):
     ], check=True)
     return video
 
+
+def render_3d_video(data):
+    """Render genuine animated 3D scenes with Blender, then sync them to narration."""
+    scene_json = OUT / "short_metadata.json"
+    script = ROOT / "render_3d.py"
+    if not script.exists():
+        raise FileNotFoundError("render_3d.py is missing.")
+    subprocess.run([
+        "blender", "--background", "--python", str(script), "--",
+        str(scene_json), str(OUT)
+    ], check=True, timeout=2100)
+    audio = OUT / "narration.mp3"
+    cta_text = (
+        "और ऐसे ही मज़ेदार फैक्ट्स के लिए चैनल को सब्सक्राइब करें। "
+        "कमेंट में बताइए, अगला फैक्ट किस विषय पर होना चाहिए?"
+    )
+    full_narration = data["narration"].strip() + " " + cta_text
+    asyncio.run(make_voice(full_narration, audio))
+    visual = OUT / "three_d_visuals.mp4"
+    video = OUT / "hindi_fact_short.mp4"
+    # Repeat the animated scene reel only as needed to cover the full narration.
+    subprocess.run([
+        "ffmpeg", "-y", "-stream_loop", "-1", "-i", str(visual), "-i", str(audio),
+        "-map", "0:v:0", "-map", "1:a:0", "-vf",
+        "scale=1080:1920:flags=lanczos,fps=30,format=yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+        "-c:a", "aac", "-b:a", "160k", "-shortest", "-movflags", "+faststart",
+        str(video)
+    ], check=True)
+    return video
+
+
 def upload_video(path, data):
     client_id = os.environ["YOUTUBE_CLIENT_ID"]
     client_secret = os.environ["YOUTUBE_CLIENT_SECRET"]
@@ -493,7 +525,7 @@ def main():
     # Create both formats daily; the long-form script is generated separately.
     short_data = ask_gemini()
     (OUT / "short_metadata.json").write_text(json.dumps(short_data, ensure_ascii=False, indent=2), encoding="utf-8")
-    short_video = render_video(short_data)
+    short_video = render_3d_video(short_data)
     long_data = ask_gemini_long()
     (OUT / "long_metadata.json").write_text(json.dumps(long_data, ensure_ascii=False, indent=2), encoding="utf-8")
     long_video, long_seconds = render_long_video(long_data)
