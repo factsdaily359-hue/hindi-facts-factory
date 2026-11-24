@@ -546,6 +546,7 @@ async def make_long_voice(text, path):
 
 
 def render_long_video(data):
+    """Render landscape 3D scene footage and loop it under the complete narration."""
     audio = OUT / "long_narration.mp3"
     asyncio.run(make_long_voice(data["narration"].strip(), audio))
     probe = subprocess.run([
@@ -553,34 +554,23 @@ def render_long_video(data):
         "-of", "default=noprint_wrappers=1:nokey=1", str(audio)
     ], check=True, capture_output=True, text=True)
     audio_duration = float(probe.stdout.strip())
-    # Aim for roughly eight minutes; retain the complete narration rather than cutting words.
-    per_scene = audio_duration / len(data["scenes"])
-    clips = []
-    for i, scene in enumerate(data["scenes"]):
-        card = make_long_card(scene, i, data["title"])
-        clip = OUT / f"long_scene_{i+1}.mp4"
-        frames = max(1, int(per_scene * 30))
-        vf = (
-            "zoompan=z='min(zoom+0.00012,1.06)'"
-            ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            f":d={frames}:s=1920x1080:fps=30,format=yuv420p"
-        )
-        subprocess.run([
-            "ffmpeg", "-y", "-loop", "1", "-i", str(card),
-            "-vf", vf, "-frames:v", str(frames), "-r", "30",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
-            str(clip)
-        ], check=True)
-        clips.append(clip)
-    concat = OUT / "long_scenes.txt"
-    with concat.open("w", encoding="utf-8") as f:
-        for clip in clips:
-            f.write(f"file '{clip.as_posix()}'\n")
+
+    scene_json = OUT / "long_metadata.json"
+    blender_script = ROOT / "render_3d.py"
+    if not blender_script.exists():
+        raise FileNotFoundError("render_3d.py is missing.")
+    subprocess.run([
+        "blender", "--background", "--python", str(blender_script), "--",
+        str(scene_json), str(OUT), "long"
+    ], check=True, timeout=2400)
+
+    visual = OUT / "long_3d_visuals.mp4"
     video = OUT / "hindi_facts_long.mp4"
     subprocess.run([
-        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat),
-        "-i", str(audio), "-vf", "fps=30,scale=1920:1080,format=yuv420p",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+        "ffmpeg", "-y", "-stream_loop", "-1", "-i", str(visual), "-i", str(audio),
+        "-map", "0:v:0", "-map", "1:a:0", "-vf",
+        "scale=1920:1080:flags=lanczos,fps=30,format=yuv420p",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
         "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart",
         str(video)
     ], check=True)
