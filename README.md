@@ -37,9 +37,9 @@ The runner must have the labels `self-hosted`, `Windows`, `X64`, and `gpu`. Do n
 
 ## Important limitations
 
-- The local RTX workflow is currently a manual review-render workflow. The daily scheduled workflow still uses GitHub-hosted cloud CPU rendering. Automatic PC-online/local versus PC-off/cloud routing is not enabled yet.
-- The present Blender scenes are procedural 3D objects and motion, not yet reference-level photorealistic CGI or a complete rigid-body physics simulator.
-- The long-form renderer is still a 2D scene-card renderer pending its 3D upgrade.
+- The local RTX workflow is currently a manual review-render workflow. The daily scheduled workflow still uses GitHub-hosted cloud CPU rendering. Automatic PC-online/local versus PC-off/cloud routing is not enabled yet. The Windows runner must be registered once by the repository owner.
+- Both Short and Long Video now use the Blender procedural 3D scene renderer (portrait for Shorts, landscape for Long). The scenes are still stylized procedural 3D objects and motion, not yet reference-level photorealistic CGI or a full rigid-body physics simulator.
+- Long-form footage currently loops a short 3D scene reel under the complete narration; it does not yet contain eight minutes of unique continuous 3D animation.
 - A generated thumbnail is a frame-based review thumbnail, not an AI-designed custom YouTube thumbnail.
 - Gemini free-tier quota, GitHub Actions minutes, render time, and third-party service limits can prevent a daily run.
 - No workflow should upload videos until the owner explicitly enables and approves that step.
