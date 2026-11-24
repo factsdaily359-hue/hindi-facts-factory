@@ -7,6 +7,10 @@ from mathutils import Vector
 
 args = sys.argv[sys.argv.index("--") + 1:]
 meta_path, out_dir = args[0], args[1]
+mode = args[2] if len(args) > 2 else "short"
+is_long = mode == "long"
+render_width, render_height = (960, 540) if is_long else (540, 960)
+scene_limit = 8 if is_long else 5
 with open(meta_path, "r", encoding="utf-8") as f:
     data = json.load(f)
 os.makedirs(out_dir, exist_ok=True)
@@ -73,8 +77,8 @@ def render_scene(index, label):
     scene=bpy.context.scene
     scene.render.engine="BLENDER_EEVEE_NEXT"
     scene.eevee.taa_render_samples=16
-    scene.render.resolution_x=540
-    scene.render.resolution_y=960
+    scene.render.resolution_x=render_width
+    scene.render.resolution_y=render_height
     scene.render.resolution_percentage=100
     scene.render.fps=24
     scene.render.image_settings.file_format="PNG"
@@ -154,7 +158,7 @@ def render_scene(index, label):
             for fc in obj.animation_data.action.fcurves:
                 for kp in fc.keyframe_points:
                     kp.interpolation="BEZIER"
-    scene.frame_start=1; scene.frame_end=96
+    scene.frame_start=1; scene.frame_end=72 if is_long else 96
     scene.render.image_settings.file_format="PNG"
     scene.render.filepath=os.path.join(out_dir, "3d_frame_")
     # Render frames, then encode this scene as an MP4.
@@ -171,13 +175,13 @@ def render_scene(index, label):
     return clip
 
 clips=[]
-for i, label in enumerate(data.get("screens",[])[:5],1):
+for i, label in enumerate((data.get("scenes",[]) if is_long else data.get("screens",[]))[:scene_limit],1):
     clips.append(render_scene(i,label))
 concat=os.path.join(out_dir,"3d_scenes.txt")
 with open(concat,"w",encoding="utf-8") as f:
     for clip in clips:
         f.write("file '"+clip.replace("'","'\\''")+"'\n")
-visual=os.path.join(out_dir,"three_d_visuals.mp4")
+visual=os.path.join(out_dir,"long_3d_visuals.mp4" if is_long else "three_d_visuals.mp4")
 import subprocess
 subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i",concat,"-c","copy",visual],check=True)
 print("3D_RENDER_COMPLETE",visual)
