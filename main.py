@@ -21,6 +21,24 @@ VOICE = os.getenv("TTS_VOICE", "hi-IN-MadhurNeural")
 FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
 BOLD_FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"
 
+def generate_with_quota_retry(model, prompt, generation_config, label):
+    """Wait and retry when the Gemini free-tier requests-per-minute limit is hit."""
+    delays = [15, 30, 60, 90]
+    for attempt in range(len(delays) + 1):
+        try:
+            return model.generate_content(prompt, generation_config=generation_config)
+        except Exception as exc:
+            message = str(exc).lower()
+            quota_error = ("resource_exhausted" in message or "429" in message
+                           or "generate_content_free_tier_requests" in message)
+            if not quota_error or attempt >= len(delays):
+                raise
+            wait_seconds = delays[attempt]
+            print(f"GEMINI_RATE_LIMIT: {label} request blocked; retrying in {wait_seconds}s "
+                  f"(attempt {attempt + 1}/{len(delays)}).")
+            import time
+            time.sleep(wait_seconds)
+
 def ask_gemini():
     key = os.environ["GEMINI_API_KEY"]
     genai.configure(api_key=key)
@@ -41,9 +59,10 @@ Rules:
 - Prefer unusual but well-established science, nature, history, space, or everyday-life facts. Avoid medical, political, financial, dangerous, disputed, or breaking-news claims.
 - Avoid repeating common generic facts.
 """
-    response = model.generate_content(
-        prompt,
-        generation_config={"temperature": 0.65, "response_mime_type": "application/json"},
+    response = generate_with_quota_retry(
+        model, prompt,
+        {"temperature": 0.65, "response_mime_type": "application/json"},
+        "Short",
     )
     data = json.loads(response.text)
     required = ["title", "narration", "screens", "description", "sources"]
@@ -379,9 +398,10 @@ Rules:
 - sources: 2-4 real, directly relevant URLs from credible institutions, universities, government bodies, museums, or peer-reviewed publishers. Never invent URLs. Return fewer if uncertain.
 - Avoid medical, political, financial, dangerous, disputed, or breaking-news claims.
 """
-    response = model.generate_content(
-        prompt,
-        generation_config={"temperature": 0.55, "response_mime_type": "application/json"},
+    response = generate_with_quota_retry(
+        model, prompt,
+        {"temperature": 0.55, "response_mime_type": "application/json"},
+        "Long video",
     )
     data = json.loads(response.text)
     if not all(k in data for k in ["title", "narration", "description", "sources", "scenes"]):
