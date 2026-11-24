@@ -22,21 +22,42 @@ FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
 BOLD_FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"
 
 def generate_with_quota_retry(model, prompt, generation_config, label):
-    """Wait and retry when the Gemini free-tier requests-per-minute limit is hit."""
-    delays = [15, 30, 60, 90]
+    """Retry Gemini rate limits and transient 504/deadline/network failures."""
+    import time
+
+    delays = [20, 40, 60, 90, 120]
     for attempt in range(len(delays) + 1):
         try:
-            return model.generate_content(prompt, generation_config=generation_config)
+            # Give slower free-tier generations more time before the SDK deadline.
+            return model.generate_content(
+                prompt,
+                generation_config=generation_config,
+                request_options={"timeout": 300},
+            )
         except Exception as exc:
             message = str(exc).lower()
-            quota_error = ("resource_exhausted" in message or "429" in message
-                           or "generate_content_free_tier_requests" in message)
-            if not quota_error or attempt >= len(delays):
+            quota_error = (
+                "resource_exhausted" in message
+                or "429" in message
+                or "generate_content_free_tier_requests" in message
+            )
+            transient_error = (
+                "deadline_exceeded" in message
+                or "deadline expired" in message
+                or "504" in message
+                or "service unavailable" in message
+                or "temporarily unavailable" in message
+                or "timed out" in message
+            )
+            if not (quota_error or transient_error) or attempt >= len(delays):
                 raise
             wait_seconds = delays[attempt]
-            print(f"GEMINI_RATE_LIMIT: {label} request blocked; retrying in {wait_seconds}s "
-                  f"(attempt {attempt + 1}/{len(delays)}).")
-            import time
+            error_type = "RATE_LIMIT" if quota_error else "TEMPORARY_TIMEOUT"
+            print(
+                f"GEMINI_{error_type}: {label} request failed; retrying in "
+                f"{wait_seconds}s (attempt {attempt + 1}/{len(delays)}). "
+                f"Reason: {message[:240]}"
+            )
             time.sleep(wait_seconds)
 
 def ask_gemini():
