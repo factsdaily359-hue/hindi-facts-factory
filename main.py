@@ -32,7 +32,7 @@ Rules:
 - Use natural, conversational Indian Hindi in Devanagari. It must sound like a curious Indian storyteller speaking to a friend, never formal textbook Hindi.
 - narration: 85-105 Hindi words. Start immediately with a startling question, vivid claim, or curiosity gap in the first sentence. Do NOT greet viewers or introduce the channel.
 - Build one clear curiosity loop: tease the surprising answer early, reveal useful clues progressively, then deliver the strongest verified payoff near the end.
-- Use short spoken sentences, varied rhythm, concrete imagery, and one memorable comparison where useful. No filler, repetition, fake suspense, or exaggerated claims.
+- Write for speech, not reading: use short natural sentences, commas and question marks where a real Indian narrator would pause; spell out numbers in Hindi words; avoid awkward English acronyms, tongue-twisting compounds, and overly Sanskritized vocabulary. Use varied sentence lengths and conversational transitions. No filler, repetition, fake suspense, or exaggerated claims.
 - End with a natural one-line question that invites comments; avoid begging for likes/subscriptions.
 - screens: exactly 5 concise Hindi Devanagari lines, each max 8 words. Scene 1 must be a scroll-stopping hook; scenes 2-4 escalate the explanation; scene 5 delivers the payoff. Each line must match the narration at that moment.
 - title: concise curiosity-driven Hindi title, truthful and not clickbait.
@@ -216,7 +216,8 @@ def make_cta_card():
     return path
 
 async def make_voice(text, path):
-    communicate = edge_tts.Communicate(text, VOICE, rate="+2%", volume="+0%")
+    # Slightly slower, neutral pitch and no exaggerated processing for clearer conversational Hindi.
+    communicate = edge_tts.Communicate(text, VOICE, rate="-4%", volume="+0%", pitch="+0Hz")
     await communicate.save(str(path))
 
 def render_video(data):
@@ -369,7 +370,7 @@ Rules:
 - narration must be 850-950 words in natural conversational Indian Hindi (Devanagari), suitable for a native Indian male narrator.
 - Open with a powerful 10-second hook and a clear question; do not greet viewers or introduce the channel.
 - Build a coherent story with a clear beginning, progressive explanations, concrete examples, surprising but verified details, and a satisfying conclusion.
-- Explain technical ideas simply. No padding, repeated points, fake suspense, fabricated facts, or exaggerated claims.
+- Write for spoken delivery, not an essay: use clear everyday Indian Hindi, short-to-medium sentences, natural punctuation and breathing pauses; spell out numbers where practical; avoid awkward English acronyms, tongue-twisting compounds and overly Sanskritized words. Explain technical ideas simply. No padding, repeated points, fake suspense, fabricated facts, or exaggerated claims.
 - Include natural transitions between sections. Keep spoken sentences comfortable for voice narration.
 - End with a short question for comments, followed by this CTA in Hindi: "ऐसे ही दिलचस्प वीडियो के लिए चैनल को सब्सक्राइब करें।"
 - scenes: exactly 8 concise visual scene descriptions in Hindi, each corresponding to a different part of the narration. These are visual direction labels, NOT subtitles or captions.
@@ -443,7 +444,8 @@ def make_long_card(scene_text, index, title):
 
 
 async def make_long_voice(text, path):
-    communicate = edge_tts.Communicate(text, VOICE, rate="+2%", volume="+0%")
+    # Match the Short: relaxed pace and unchanged natural pitch.
+    communicate = edge_tts.Communicate(text, VOICE, rate="-4%", volume="+0%", pitch="+0Hz")
     await communicate.save(str(path))
 
 
