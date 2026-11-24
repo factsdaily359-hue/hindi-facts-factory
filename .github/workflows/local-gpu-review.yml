@@ -44,72 +44,43 @@ jobs:
           if (-not (Test-Path requirements.txt)) {
             throw "requirements.txt is missing from the repository."
           }
-          if (-not (Test-Path main.py)) {
-            throw "main.py is missing from the repository."
+          if (-not (Test-Path render_3d.py)) {
+            throw "render_3d.py is missing from the repository."
           }
-          Write-Host "Local runner, Python, Blender, FFmpeg, and repository checks completed."
 
-      - name: Render a real test scene on the NVIDIA GPU
+      - name: Render a real sample 3D Hindi fact video locally
         run: |
           $blenderExe = "C:\Program Files\Blender Foundation\Blender 5.3\blender.exe"
-          $testScript = Join-Path $env:RUNNER_TEMP "blender_gpu_test.py"
-          $renderOutput = Join-Path $env:RUNNER_TEMP "blender-gpu-test.png"
-          $pythonScript = @'
-          import bpy
-          import os
-          from mathutils import Vector
-
-          prefs = bpy.context.preferences.addons["cycles"].preferences
-          prefs.compute_device_type = "OPTIX"
-          prefs.get_devices()
-          gpu_devices = [d for d in prefs.devices if d.type == "OPTIX"]
-          if not gpu_devices:
-              raise RuntimeError("No OptiX GPU device was found by Blender.")
-          for device in prefs.devices:
-              device.use = (device.type == "OPTIX")
-          print("SELECTED_GPU_DEVICES:", [d.name for d in gpu_devices])
-
-          bpy.ops.object.select_all(action="SELECT")
-          bpy.ops.object.delete(use_global=False)
-
-          bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, location=(0, 0, 0))
-          sphere = bpy.context.object
-          sphere.name = "GPU_Test_Sphere"
-
-          material = bpy.data.materials.new("GPU_Test_Material")
-          material.diffuse_color = (0.12, 0.35, 0.8, 1.0)
-          sphere.data.materials.append(material)
-
-          bpy.ops.object.camera_add(location=(4, -6, 3.5))
-          camera = bpy.context.object
-          direction = Vector((0, 0, 0)) - camera.location
-          camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
-          bpy.context.scene.camera = camera
-
-          bpy.ops.object.light_add(type="AREA", location=(1, -3, 4))
-          light = bpy.context.object
-          light.data.energy = 500
-          light.data.shape = "DISK"
-          light.data.size = 4
-
-          scene = bpy.context.scene
-          scene.render.engine = "CYCLES"
-          scene.cycles.device = "GPU"
-          scene.cycles.samples = 8
-          scene.render.resolution_x = 256
-          scene.render.resolution_y = 256
-          scene.render.resolution_percentage = 100
-          scene.render.image_settings.file_format = "PNG"
-          scene.render.filepath = os.path.join(os.environ["RUNNER_TEMP"], "blender-gpu-test.png")
-          bpy.ops.render.render(write_still=True)
-          print("GPU_TEST_RENDER_COMPLETE:", scene.render.filepath)
-          '@
-          [System.IO.File]::WriteAllText($testScript, $pythonScript, (New-Object System.Text.UTF8Encoding($false)))
-          & $blenderExe -b -noaudio --python $testScript
+          $outDir = Join-Path $env:GITHUB_WORKSPACE "output"
+          $metadata = Join-Path $env:RUNNER_TEMP "sample_short_metadata.json"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $sample = @{
+            title = "समुद्र के नीचे की अनोखी दुनिया"
+            screens = @(
+              "समुद्र की गहराई में अंधेरा",
+              "कुछ जीव खुद रोशनी बनाते हैं",
+              "इसे बायोल्यूमिनेसेंस कहते हैं",
+              "रोशनी से शिकार भी होता है",
+              "प्रकृति का अपना टॉर्च सिस्टम"
+            )
+          } | ConvertTo-Json -Depth 5
+          [System.IO.File]::WriteAllText($metadata, $sample, (New-Object System.Text.UTF8Encoding($false)))
+          & $blenderExe --background --python render_3d.py -- $metadata $outDir
           if ($LASTEXITCODE -ne 0) {
-            throw "Blender GPU test render failed with exit code $LASTEXITCODE"
+            throw "The local 3D scene render failed with exit code $LASTEXITCODE"
           }
-          if (-not (Test-Path $renderOutput)) {
-            throw "Blender did not create the expected GPU test image."
+          $video = Join-Path $outDir "three_d_visuals.mp4"
+          if (-not (Test-Path $video)) {
+            throw "The 3D render did not create three_d_visuals.mp4"
           }
-          Write-Host "GPU test render image created: $renderOutput"
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $video
+          Write-Host "SAMPLE_3D_VIDEO_READY=$video"
+
+      - name: Save sample 3D video for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-rtx-sample-3d-video
+          path: output/three_d_visuals.mp4
+          if-no-files-found: ignore
+          retention-days: 3
