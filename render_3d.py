@@ -152,12 +152,8 @@ def render_scene(index, label):
         hero.rotation_euler=(0.18,0.35,math.radians(90))
         hero.keyframe_insert(data_path="rotation_euler",frame=96)
     setup_camera(); light_setup()
-    # Smooth interpolation for cinematic camera/object motion.
-    for obj in scene.objects:
-        if obj.animation_data and obj.animation_data.action:
-            for fc in obj.animation_data.action.fcurves:
-                for kp in fc.keyframe_points:
-                    kp.interpolation="BEZIER"
+    # Blender 5.x uses layered Actions; inserted keyframes already default to BEZIER.
+    # Avoid the removed legacy Action.fcurves API.
     scene.frame_start=1; scene.frame_end=72 if is_long else 96
     scene.render.image_settings.file_format="PNG"
     scene.render.filepath=os.path.join(out_dir, "3d_frame_")
