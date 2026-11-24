@@ -18,8 +18,8 @@ OUT = ROOT / "output"
 OUT.mkdir(exist_ok=True)
 MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 VOICE = os.getenv("TTS_VOICE", "hi-IN-MadhurNeural")
-FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"
-BOLD_FONT_PATH = "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"
+FONT_PATH = os.getenv("HINDI_FONT_PATH", "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf")
+BOLD_FONT_PATH = os.getenv("HINDI_BOLD_FONT_PATH", "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
 
 def generate_with_quota_retry(model, prompt, generation_config, label):
     """Retry only short-lived Gemini outages; never burn requests on exhausted quota."""
@@ -102,9 +102,21 @@ Rules:
     return data
 
 def font(size, bold=False):
-    path = BOLD_FONT_PATH if bold and os.path.exists(BOLD_FONT_PATH) else FONT_PATH
-    if not os.path.exists(path):
-        raise FileNotFoundError("Devanagari font missing. Install fonts-noto-core in the runner.")
+    candidates = []
+    if bold:
+        candidates.extend([BOLD_FONT_PATH, r"C:\Windows\Fonts\NirmalaB.ttf",
+                           r"C:\Windows\Fonts\Nirmala.ttf"])
+    else:
+        candidates.extend([FONT_PATH, r"C:\Windows\Fonts\Nirmala.ttf"])
+    candidates.extend([
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf" if bold
+        else "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+    ])
+    path = next((candidate for candidate in candidates if candidate and os.path.exists(candidate)), None)
+    if path is None:
+        raise FileNotFoundError(
+            "Hindi font missing. Install Noto Sans Devanagari or ensure Windows Nirmala UI is installed."
+        )
     return ImageFont.truetype(path, size=size)
 
 def draw_wrapped(draw, text, fnt, max_width):
@@ -497,7 +509,7 @@ def make_long_card(scene_text, index, title):
     d = ImageDraw.Draw(img, "RGBA")
     d.rounded_rectangle((55, 55, 1865, 1025), radius=48,
                         fill=(3, 8, 20, 55), outline=(255,255,255,45), width=3)
-    d.text((115, 105), "HINDI FACTS FACTORY", font=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 34),
+    d.text((115, 105), "HINDI FACTS FACTORY", font=font(34, True),
            fill=(255, 211, 100, 255))
     # Large topic illustration made from simple layered vector shapes.
     cx, cy = 1420, 570
@@ -509,8 +521,8 @@ def make_long_card(scene_text, index, title):
     d.ellipse((cx-205,cy-205,cx+205,cy+205), fill=(255,190,80,210), outline=(255,245,200,255), width=8)
     d.arc((cx-300,cy-110,cx+300,cy+110), 190, 350, fill=(180,230,255,255), width=18)
     d.arc((cx-300,cy-110,cx+300,cy+110), 10, 170, fill=(180,230,255,255), width=18)
-    title_font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf", 54)
-    scene_font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf", 66)
+    title_font = font(54, True)
+    scene_font = font(66, True)
     title_lines = draw_wrapped(d, title, title_font, 850)
     y = 260
     for line in title_lines[:3]:
