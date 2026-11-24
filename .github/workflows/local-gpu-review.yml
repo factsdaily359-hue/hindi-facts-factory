@@ -1,0 +1,57 @@
+name: Local RTX 2060 Review Render
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hindi-facts-local-review
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: [self-hosted, Windows, X64, gpu]
+    timeout-minutes: 240
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Verify local GPU rendering tools
+        shell: pwsh
+        run: |
+          python --version
+          if (-not (Get-Command blender -ErrorAction SilentlyContinue)) {
+            throw "Blender is not in PATH. Install Blender 4.2 or newer and add its folder to PATH."
+          }
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            throw "FFmpeg is not in PATH. Install FFmpeg and add its bin folder to PATH."
+          }
+          blender --version
+          ffmpeg -version
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate Short and Long Video (review only)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.8-flash
+          NO_UPLOAD: "true"
+        run: python main.py
+
+      - name: Save review files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-rtx2060-review
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 3
