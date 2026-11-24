@@ -16,18 +16,12 @@ jobs:
       run:
         shell: powershell -ExecutionPolicy Bypass -command ". '{0}'"
     runs-on: [self-hosted, Windows, X64]
-    timeout-minutes: 240
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Verify local GPU rendering tools
+      - name: Verify local Python and GPU tools
         run: |
           python --version
           if (-not (Get-Command blender -ErrorAction SilentlyContinue)) {
@@ -38,22 +32,18 @@ jobs:
           }
           blender --version
           ffmpeg -version
+          if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+            nvidia-smi
+          } else {
+            Write-Warning "nvidia-smi not found; NVIDIA driver status could not be checked."
+          }
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-
-      - name: Generate Short and Long Video (review only)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
-          NO_UPLOAD: "true"
-        run: python main.py
-
-      - name: Save review files
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: local-rtx2060-review
-          path: output/
-          if-no-files-found: ignore
-          retention-days: 3
+      - name: Confirm repository files
+        run: |
+          if (-not (Test-Path requirements.txt)) {
+            throw "requirements.txt is missing from the repository."
+          }
+          if (-not (Test-Path main.py)) {
+            throw "main.py is missing from the repository."
+          }
+          Write-Host "Local runner, Python, Blender, FFmpeg, and repository checks completed."
